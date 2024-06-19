@@ -7,8 +7,8 @@ import torchvision.models as models
 class Discriminator(nn.Module):
     def __init__(self, max_iter, num_train):
         super(Discriminator, self).__init__()
-        self.fc1 = nn.Linear(512, 512)
-        self.fc2 = nn.Linear(512, num_train)
+        self.fc1 = nn.Linear(256, 256)
+        self.fc2 = nn.Linear(256, num_train)
         self.ad_net = nn.Sequential(
             self.fc1,
             nn.ReLU(inplace=True),
@@ -23,7 +23,7 @@ class Discriminator(nn.Module):
 
 
 class SSAN_R(nn.Module):
-    def __init__(self, ada_num=2, max_iter=4000, num_train=4):
+    def __init__(self, ada_num=2, max_iter=4000, num_train=3):
         super(SSAN_R, self).__init__()
         model_eff = models.efficientnet_b3(weights='DEFAULT')
 
@@ -34,27 +34,26 @@ class SSAN_R(nn.Module):
         self.layer4 = model_eff.features[4]
         self.layer5 = model_eff.features[5]
         self.layer6 = model_eff.features[6]
-        self.layer7 = model_eff.features[7]
 
-        self.layer8 = nn.Sequential(
-            nn.Conv2d(384, 512, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(512),
+        self.layer7 = nn.Sequential(
+            nn.Conv2d(232, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(256),
             nn.SiLU(inplace=True)
         )
 
-        self.adaIN_layers = nn.ModuleList([ResnetAdaINBlock(512) for i in range(ada_num)])
+        self.adaIN_layers = nn.ModuleList([ResnetAdaINBlock(256) for i in range(ada_num)])
 
         self.conv_final = nn.Sequential(
-            nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(1024)
+            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(512)
         )
-        self.cls_head = nn.Linear(1024, 2, bias=True)
+        self.cls_head = nn.Linear(512, 2, bias=True)
 
-        self.gamma = nn.Linear(512, 512, bias=False)
-        self.beta = nn.Linear(512, 512, bias=False)
+        self.gamma = nn.Linear(256, 256, bias=False)
+        self.beta = nn.Linear(256, 256, bias=False)
 
         self.FC = nn.Sequential(
-            nn.Linear(512, 512, bias=False),
+            nn.Linear(256, 256, bias=False),
             nn.SiLU(inplace=True)
         )
         self.ada_conv1 = nn.Sequential(
@@ -83,13 +82,8 @@ class SSAN_R(nn.Module):
             nn.SiLU(inplace=True)
         )
         self.ada_conv6 = nn.Sequential(
-            nn.Conv2d(232, 384, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.InstanceNorm2d(384),
-            nn.SiLU(inplace=True)
-        )
-        self.ada_conv7 = nn.Sequential(
-            nn.Conv2d(384, 512, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.InstanceNorm2d(512)
+            nn.Conv2d(232, 256, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.InstanceNorm2d(256)
         )
         self.dis = Discriminator(max_iter, num_train)
 
@@ -101,9 +95,8 @@ class SSAN_R(nn.Module):
         x1_4 = self.layer4(x1_3)
         x1_5 = self.layer5(x1_4)
         x1_6 = self.layer6(x1_5)
-        x1_7 = self.layer7(x1_6)
 
-        x1_8 = self.layer8(x1_7)
+        x1_7 = self.layer7(x1_6)
         
         x1_add = x1_1
         x1_add = self.ada_conv1(x1_add)+x1_2
@@ -111,16 +104,15 @@ class SSAN_R(nn.Module):
         x1_add = self.ada_conv3(x1_add)+x1_4
         x1_add = self.ada_conv4(x1_add)+x1_5
         x1_add = self.ada_conv5(x1_add)+x1_6
-        x1_add = self.ada_conv6(x1_add)+x1_7
-        x1_add = self.ada_conv7(x1_add)
+        x1_add = self.ada_conv6(x1_add)
 
         gmp = torch.nn.functional.adaptive_max_pool2d(x1_add, 1)
         gmp_ = self.FC(gmp.view(gmp.shape[0], -1))
         gamma, beta = self.gamma(gmp_), self.beta(gmp_)
 
-        domain_invariant = torch.nn.functional.adaptive_avg_pool2d(x1_8, 1).reshape(x1_8.shape[0], -1)
+        domain_invariant = torch.nn.functional.adaptive_avg_pool2d(x1_7, 1).reshape(x1_7.shape[0], -1)
 
-        return x1_8, gamma, beta, domain_invariant
+        return x1_7, gamma, beta, domain_invariant
 
     def forward(self, input1, input2):
         x1, gamma1, beta1, domain_invariant = self.cal_gamma_beta(input1)

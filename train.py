@@ -13,9 +13,13 @@ import numpy as np
 import random
 from loss import *
 
-torch.manual_seed(16)
-np.random.seed(16)
-random.seed(16)
+import torch.backends.cudnn as cudnn
+cudnn.benchmark = False
+cudnn.deterministic = True
+
+torch.manual_seed(1226)
+np.random.seed(1226)
+random.seed(1226)
 
 
 def main(args):
@@ -79,7 +83,7 @@ def main(args):
             contrast_label = label[:, 0].long() == label[rand_idx, 0].long()
             contrast_label = torch.where(contrast_label==True, 1, -1)
             constra_loss = contra_fun(fea_x1_x1, fea_x1_x2, contrast_label)
-            adv_loss = binary_fuc(domain_invariant, UUID.long())
+            adv_loss = binary_fuc(domain_invariant, UUID.long()) * args.lamda_adv
             loss_all = binary_loss + constra_loss + adv_loss
 
             n = image_x.shape[0]

@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument('--num_epochs', type=int, default=500, help='total training epochs')
     parser.add_argument('--print_freq', type=int, default=30, help='print frequency')
     parser.add_argument('--trans', type=str, default="I", help="different pre-process")
+    parser.add_argument('--lamda_adv', type=float, default=0.1, help='weight adv loss')
     # optimizer
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--optimizer', type=str, default='adam', help='optimizer')
